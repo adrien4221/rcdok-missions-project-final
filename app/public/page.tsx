@@ -20,7 +20,7 @@ export default function LandingPage() {
 
         {/* admin login button */}
         <Link 
-          href="/admin/login" 
+          href="/login" 
           className="bg-cyan-400 hover:bg-cyan-500 text-gray-900 text-xs font-bold px-6 py-2.5 rounded-full transition-colors shadow-sm"
         >
           Admin Login
