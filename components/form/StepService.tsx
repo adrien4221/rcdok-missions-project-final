@@ -1,8 +1,10 @@
 import { ChevronDown, ArrowRight, HeartHandshake, Church, MessageSquareText } from 'lucide-react';
 
 interface Props {
-  onBack: () => void
-  onNext: () => void
+  onBack: () => void;
+  // FIX: Update type to accept data
+  onNext: (data: any) => void; 
+  currentData: any;
 }
 
 export default function StepService({ onNext, onBack }: Props) {
