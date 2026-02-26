@@ -59,6 +59,7 @@ export default function LandingPage() {
                  <HelpCircle className="w-6 h-6 group-hover:rotate-12 transition-transform" />
                  Request Assistance
               </Link>
+
            </div>
 
         </div>
