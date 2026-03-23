@@ -1,0 +1,9 @@
+Name,Type,Address,Contact,Parent_Name
+Diocese of Kalookan,diocese,"San Roque Cathedral Compound, A. Mabini St. corner 10th Avenue, Caloocan City",(02) 8288-9116,
+Vicariate of San Roque,vicariate,,,Diocese of Kalookan
+Mary Help of Christians Parish,parish,"278 J.P Rizal St, Maypajo, Caloocan, 1410 Metro Manila",,Vicariate of San Roque
+Sacred Heart of Jesus Parish,parish,"M.H. Del Pilar Cor. Pureza St., Tugatog, Malabon City, Malabon, Philippines, 1470",,Vicariate of San Roque
+San Roque Cathedral,parish,"A. Mabini St, corner 10th Ave, Poblacion, Caloocan, 1400 Metro Manila",,Vicariate of San Roque
+Immaculate Heart of Mary Parish,parish,"Marcelo H. Del Pilar St, Malabon, 1477 Metro Manila",,Vicariate of San Roque
+St. Joseph the Workman Parish,parish,"Sampalukan 21 Doña Rita St, cor Laon Laan St, Caloocan, Metro Manila",,Vicariate of San Roque
+Holy Trinity Quasi Parish,quasi-parish,"111 Sanchez St, Malabon, Metro Manila",,Vicariate of San Roque

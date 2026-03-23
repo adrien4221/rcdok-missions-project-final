@@ -1,6 +1,22 @@
 'use server';
 
 import { createClient } from '@supabase/supabase-js';
+import { db } from '@/db';
+import { organizations } from '@/db/schemas/organizations';
+import { services, organizationServices } from '@/db/schemas/services';
+import { eq, and, or } from 'drizzle-orm';
+import { revalidatePath } from 'next/cache';
+import { assistanceRequests, requestStatusEnum } from '@/db/schemas/requests';
+import { ministryActivities } from '@/db/schemas/activities';
+
+// --- TYPES ---
+type OrgUnit = {
+  id: string;
+  name: string;
+  type: string;
+  children?: OrgUnit[];
+  activeServices: string[];
+};
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -74,43 +90,51 @@ export async function submitRequest(formData: any) {
  * Saves all active services and their schedules for a specific location.
  */
 export async function saveLocationServices(
-  organizationId: string, 
-  activeServices: string[], 
-  schedules: Record<string, { days: string[], slots: string[] }>
+    orgId: string, 
+    activeServiceIds: string[], 
+    schedules: Record<string, { days: string[], slots: string[] }>
 ) {
-  // 1. Format the data for a bulk upsert
-  const upsertData = activeServices.map(serviceId => {
-    const schedKey = `${organizationId}_${serviceId}`;
-    const sched = schedules[schedKey] || { days: [], slots: [] };
-    
-    return {
-      organization_id: organizationId,
-      service_id: serviceId,
-      is_active: true,
-      available_days: sched.days,
-      available_slots: sched.slots
-    };
-  });
+  try {
+    // A. Clear out the old services for this specific parish
+    await db.delete(organizationServices)
+            .where(eq(organizationServices.organizationId, orgId));
 
-  // 2. Bulk save active services
-  if (upsertData.length > 0) {
-    const { error } = await supabase
-      .from('organization_services')
-      .upsert(upsertData, { onConflict: 'organization_id,service_id' });
+    if (activeServiceIds.length === 0) {
+        revalidatePath('/admin/services'); 
+        revalidatePath(`/directory/parish/${orgId}`); 
+        return { success: true };
+    }
 
-    if (error) return { success: false, message: error.message };
+    // C. Format the new data for insertion
+    const dataToInsert = activeServiceIds.map(serviceId => {
+        const key = `${orgId}_${serviceId}`;
+        const sched = schedules[key];
+        
+        // Re-combine the arrays into a single string for the database
+        const daysStr = sched?.days?.length ? sched.days.join(',') : '';
+        const slotsStr = sched?.slots?.length ? sched.slots.join(',') : '';
+        const scheduleString = `${daysStr} | ${slotsStr}`;
+
+        return {
+            organizationId: orgId,
+            serviceId: serviceId,
+            schedule: scheduleString,
+            description: "Contact the parish for more details regarding this ministry." 
+        };
+    });
+
+    // D. Insert the new active services
+    await db.insert(organizationServices).values(dataToInsert);
+
+    // refresh the UI so the changes show up immediately
+    revalidatePath('/admin/services');
+    revalidatePath(`/directory/parish/${orgId}`); 
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error saving configs:", error);
+    return { success: false, message: "Database Error" };
   }
-
-  // 3. Clean up: Deactivate services that were toggled off
-  const { error: cleanupError } = await supabase
-    .from('organization_services')
-    .update({ is_active: false })
-    .eq('organization_id', organizationId)
-    .not('service_id', 'in', `(${activeServices.join(',')})`);
-
-  if (cleanupError) return { success: false, message: cleanupError.message };
-
-  return { success: true };
 }
 
 /**
@@ -118,74 +142,163 @@ export async function saveLocationServices(
  * and their configured schedules.
  */
 export async function fetchServiceConfigurations() {
-  // 1. Get ONLY the Diocese and Parishes (Enforces the 2-level rule)
-  const { data: orgs, error: orgError } = await supabase
-    .from('organizations')
-    .select('*')
-    .in('type', ['diocese', 'parish'])
-    .order('name'); // Sorts parishes alphabetically in the sidebar
+  try {
+    // A. Fetch all organizations
+    const allOrgs = await db.select().from(organizations);
+    
+    // B. Fetch all active service links
+    const activeLinks = await db.select().from(organizationServices);
 
-  // 2. Get all currently active services and their schedules
-  const { data: activeServices, error: servError } = await supabase
-    .from('organization_services')
-    .select('*')
-    .eq('is_active', true);
+    const masterServices = await db.select().from(services);
 
-  if (orgError || servError) {
-    console.error('Fetch Error:', orgError || servError);
+    // Helper: Find active services for a specific parish
+    const getActiveServiceIds = (orgId: string) => {
+        return activeLinks
+            .filter(link => link.organizationId === orgId)
+            .map(link => link.serviceId);
+    };
+
+    // Helper: Recursively build the tree
+    const buildTree = (parentId: string | null = null): OrgUnit[] => {
+      return allOrgs
+        .filter(org => org.parentId === parentId)
+        .map(org => ({
+          id: org.id,
+          name: org.name,
+          type: org.type,
+          activeServices: getActiveServiceIds(org.id),
+          children: buildTree(org.id),
+        }));
+    };
+
+    // Start the tree at the top level (where parentId is null, i.e., the Diocese)
+    const tree = buildTree(null);
+
+    // C. Format the schedules to match the UI state
+    // Expects: { "orgId_serviceId": { days: ['Mon'], slots: ['09:00 AM'] } }
+    const schedules: Record<string, { days: string[], slots: string[] }> = {};
+    activeLinks.forEach(link => {
+        const key = `${link.organizationId}_${link.serviceId}`;
+        
+        // parse the raw schedule string from the database (e.g., "Mon,Tue | 09:00 AM,10:00 AM")
+        const [daysStr, slotsStr] = (link.schedule || "").split(" | ");
+        
+        schedules[key] = {
+            days: daysStr ? daysStr.split(",") : [],
+            slots: slotsStr ? slotsStr.split(",") : []
+        };
+    });
+
+    return { success: true, tree, schedules, allServices: masterServices };
+  } catch (error) {
+    console.error("Error fetching configs:", error);
     return { success: false, tree: [], schedules: {} };
   }
+}
 
-  // 3. Format the Schedules Dictionary for the Frontend
-  // Turns database rows into: { "parishUUID_Legal Aid": { days: ['Mon'], slots: ['09:00 AM'] } }
-  const schedulesMap: Record<string, { days: string[], slots: string[] }> = {};
-  
-  activeServices.forEach(record => {
-    const key = `${record.organization_id}_${record.service_id}`;
-    schedulesMap[key] = {
-      days: record.available_days || [],
-      slots: record.available_slots || []
-    };
-  });
 
-  // 4. Build the 2-Level Hierarchy Tree
-  const orgMap = new Map();
-  
-  // First pass: Create the raw nodes and attach their active services
-  orgs.forEach(org => {
-    orgMap.set(org.id, { 
-      id: org.id,
-      name: org.name,
-      type: org.type,
-      children: [], 
-      // Look through activeServices and pluck out the ones that belong to THIS parish
-      activeServices: activeServices
-        .filter(s => s.organization_id === org.id)
-        .map(s => s.service_id) 
-    });
-  });
 
-  // Second pass: Connect the Parishes (children) to the Diocese (parent)
-  const rootNodes: any[] = [];
-  
-  orgMap.forEach((org, id) => {
-    // Find the original database record to check for a parent_id
-    const originalRecord = orgs.find(o => o.id === id);
+export async function submitAssistanceRequest(data: {
+  parishId: string;
+  serviceId: string;
+  name: string;
+  email?: string;
+  contactNumber?: string;
+  message?: string;
+}) {
+  try {
+    // 1. Basic Validation
+    if (!data.name || data.name.trim() === '') return { success: false, message: "Name is required." };
+    if (!data.email && !data.contactNumber) return { success: false, message: "Provide an email or contact number." };
+
+    // --- INVISIBLE SPAM PROTECTION ---
+    // 2. Check for existing pending requests from person that made a request already
     
-    if (originalRecord?.parent_id) {
-      const parent = orgMap.get(originalRecord.parent_id);
-      if (parent) {
-        parent.children.push(org);
-      }
-    } else {
-      // If it has no parent, it's the root (The Diocese)
-      rootNodes.push(org); 
-    }
-  });
+    // Dynamic condition: check if either the email OR the phone matches
+    const contactConditions = [];
+    if (data.email) contactConditions.push(eq(assistanceRequests.email, data.email));
+    if (data.contactNumber) contactConditions.push(eq(assistanceRequests.contactNumber, data.contactNumber));
 
-  return { 
-    success: true, 
-    tree: rootNodes, 
-    schedules: schedulesMap 
-  };
+    // ...existing code...
+    const [existingRequest] = await db
+      .select()
+      .from(assistanceRequests)
+      .where(
+        and(
+          eq(assistanceRequests.organizationId, data.parishId),
+          eq(assistanceRequests.serviceId, data.serviceId),
+          eq(assistanceRequests.status, 'pending'),
+          or(...contactConditions)
+        )
+      )
+      .limit(1);
+    // ...existing code...
+
+    if (existingRequest) {
+      return { 
+        success: false, 
+        message: "You already have a pending request for this service. Please wait for the parish to contact you." 
+      };
+    }
+    // --- END SPAM PROTECTION ---
+
+    // 3. Insert into Supabase 
+    await db.insert(assistanceRequests).values({
+      organizationId: data.parishId,
+      serviceId: data.serviceId,
+      requesterName: data.name,
+      email: data.email || null, 
+      contactNumber: data.contactNumber || null,
+      message: data.message || null,
+    });
+
+    return { success: true, message: "Request successfully submitted." };
+  } catch (error) {
+    console.error("Error submitting assistance request:", error);
+    return { success: false, message: "A database error occurred. Please try again." };
+  }
+}
+
+export async function updateRequestStatus(
+  requestId: string, 
+  // Extracting the exact type from the schema to ensure TypeScript safety
+  newStatus: typeof requestStatusEnum.enumValues[number] 
+) {
+  try {
+    await db.update(assistanceRequests)
+      .set({ status: newStatus, updatedAt: new Date() })
+      .where(eq(assistanceRequests.id, requestId));
+      
+    revalidatePath('/admin/requests'); // refresh instantly the tables
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to update status", error);
+    return { success: false };
+  }
+}
+
+
+export async function submitMinistryActivity(data: {
+  parishId: string;
+  serviceId: string;
+  activityDate: string; 
+  details: any; // JSON payload holder
+}) {
+  try {
+    if (!data.parishId || !data.activityDate) {
+      return { success: false, message: "Parish and Date are required." };
+    }
+
+    await db.insert(ministryActivities).values({
+      organizationId: data.parishId,
+      serviceId: data.serviceId,
+      activityDate: data.activityDate,
+      details: data.details, 
+    });
+
+    return { success: true, message: "Activity successfully logged!" };
+  } catch (error) {
+    console.error("Failed to log activity:", error);
+    return { success: false, message: "Database error occurred." };
+  }
 }
