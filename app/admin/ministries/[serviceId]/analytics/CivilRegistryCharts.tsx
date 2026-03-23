@@ -42,7 +42,7 @@ export function ProcessingTimeBarChart({ data }: { data: { name: string; days: n
           <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} />
           <Tooltip 
             cursor={{ fill: '#F3F4F6' }} 
-            formatter={(value: number) => [`${value} Days`, 'Avg. Processing Time']}
+            formatter={(value: any) => [`${value} Days`, 'Avg. Processing Time']}
             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} 
           />
           <Bar dataKey="days" name="Avg. Days to Release" fill="#2dd4bf" radius={[4, 4, 0, 0]} />

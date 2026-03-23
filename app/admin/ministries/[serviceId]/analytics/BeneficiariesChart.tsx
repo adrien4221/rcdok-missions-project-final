@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 
 type ChartData = {
-  parish: string;
+  name: string;
   kidsFed: number;
 };
 
@@ -23,10 +23,8 @@ export default function BeneficiariesChart({
   parishData: ChartData[], 
   vicariateData: ChartData[] 
 }) {
-  // 1. The Toggle State!
   const [view, setView] = useState<'parish' | 'vicariate'>('parish');
 
-  // 2. Decide which data to show based on the toggle
   const activeData = view === 'parish' ? parishData : vicariateData;
 
   if (parishData.length === 0) {
@@ -40,7 +38,6 @@ export default function BeneficiariesChart({
   return (
     <div className="space-y-6">
       
-      {/* 3. The Toggle Buttons (Segmented Control) */}
       <div className="flex bg-gray-100 p-1 rounded-lg w-fit">
         <button
           onClick={() => setView('parish')}
@@ -60,7 +57,6 @@ export default function BeneficiariesChart({
         </button>
       </div>
 
-      {/* 4. The Chart */}
       <div className="h-[400px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={activeData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>

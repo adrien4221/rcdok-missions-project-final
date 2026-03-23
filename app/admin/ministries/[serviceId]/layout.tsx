@@ -4,7 +4,7 @@ import { services } from '@/db/schemas/services';
 import { eq } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 import { BarChart3, ClipboardEdit, ListOrdered } from 'lucide-react';
-import MinistrySidebar from './MinistrySidebar';
+import MinistrySidebar from '../MinistrySidebar';
 
 export default async function MinistryDashboardLayout({
   children,

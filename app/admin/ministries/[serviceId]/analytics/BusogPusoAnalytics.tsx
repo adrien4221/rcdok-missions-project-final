@@ -47,12 +47,13 @@ export default async function BusogPusoAnalytics({
     vicariateAggregation[vicName] = (vicariateAggregation[vicName] || 0) + kids;
   });
 
+
   const parishChartData = Object.entries(parishAggregation)
-    .map(([name, kidsFed]) => ({ name, kidsFed }))
+    .map(([name, kidsFed]) => ({ name, kidsFed })) 
     .sort((a, b) => b.kidsFed - a.kidsFed);
 
   const vicariateChartData = Object.entries(vicariateAggregation)
-    .map(([name, kidsFed]) => ({ name, kidsFed }))
+    .map(([name, kidsFed]) => ({ name, kidsFed })) 
     .sort((a, b) => b.kidsFed - a.kidsFed);
 
   return (
