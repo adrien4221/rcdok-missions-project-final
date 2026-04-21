@@ -1,167 +1,231 @@
 'use client';
 
-import { useState } from 'react';
-import { submitMinistryActivity } from '@/app/actions';
-import { Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { submitMinistryActivity } from '@/app/actions/actions';
+import { Plus, Trash2, CheckCircle2, Receipt, MapPin, Utensils, X } from 'lucide-react';
 
 type Parish = { id: string; name: string };
-type ResourceItem = { item: string; quantity: string; unit: string };
+type MarketExpense = { item: string; cost: string };
 
-const STANDARD_ITEMS = ["Rice", "Canned Goods", "Vegetables", "Meat/Poultry", "Water", "Other"];
-const STANDARD_UNITS = ["Kilograms", "Sacks", "Boxes", "Packs", "Pieces", "Liters"];
-
-export default function ActivityForm({ serviceId, parishes }: { serviceId: string, parishes: Parish[] }) {
+export default function ActivityForm({ 
+  serviceId, 
+  parishes = [], 
+  initialData, 
+  onSuccess 
+}: { 
+  serviceId: string; 
+  parishes?: Parish[];
+  initialData?: any;
+  onSuccess?: () => void;
+}) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // --- SECTION 1 STATE ---
   const [parishId, setParishId] = useState('');
   const [date, setDate] = useState('');
-  const [programType, setProgramType] = useState('Lunch');
-
-  // --- SECTION 2 STATE ---
+  const [area, setArea] = useState('');
   const [foodServed, setFoodServed] = useState('');
-  const [beneficiaries, setBeneficiaries] = useState('');
+  const [beneficiaries, setBeneficiaries] = useState<string | number>('');
+  const [marketExpenses, setMarketExpenses] = useState<MarketExpense[]>([{ item: '', cost: '' }]);
 
-  // --- SECTION 3 STATE ---
-  const [resources, setResources] = useState<ResourceItem[]>([
-    { item: 'Rice', quantity: '', unit: 'Kilograms' }
-  ]);
+  useEffect(() => {
+    if (initialData) {
+      const currentId = initialData.organizationId || initialData.parishId;
+      setParishId(currentId || '');
+      console.log("ActivityForm: Loaded Initial ID ->", initialData.id);      
+      const formattedDate = initialData.date 
+        ? new Date(initialData.date).toISOString().split('T')[0] 
+        : '';
+      setDate(formattedDate);
+      
+      setArea(initialData.details?.area || '');
+      setFoodServed(initialData.details?.food_served || '');
+      setBeneficiaries(initialData.details?.beneficiaries || '');
+      setMarketExpenses(initialData.details?.market_expenses || [{ item: '', cost: '' }]);
+    }
+  }, [initialData]);
 
-  // Dynamic Array Handlers
-  const handleAddResource = () => {
-    setResources([...resources, { item: 'Rice', quantity: '', unit: 'Kilograms' }]);
+  const handleAddExpense = () => setMarketExpenses([...marketExpenses, { item: '', cost: '' }]);
+  
+  const handleRemoveExpense = (index: number) => {
+    if (marketExpenses.length > 1) {
+      setMarketExpenses(marketExpenses.filter((_, i) => i !== index));
+    }
   };
 
-  const handleRemoveResource = (indexToRemove: number) => {
-    setResources(resources.filter((_, index) => index !== indexToRemove));
-  };
-
-  const handleUpdateResource = (index: number, field: keyof ResourceItem, value: string) => {
-    const newResources = [...resources]; 
-    newResources[index][field] = value;  
-    setResources(newResources);          
+  const handleUpdateExpense = (index: number, field: keyof MarketExpense, value: string) => {
+    const newExpenses = [...marketExpenses];
+    newExpenses[index][field] = value;
+    setMarketExpenses(newExpenses);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // construct JSON payload
-    const jsonPayload = {
-      program_type: programType,
-      food_served: foodServed,
-      beneficiaries: Number(beneficiaries),
-      resources_utilized: resources
-    };
+    console.log("Submitting ActivityID:", initialData?.id);
 
-    // send to server action
-    const result = await submitMinistryActivity({
+    const payload = {
       serviceId,
       parishId,
       activityDate: date,
-      details: jsonPayload
-    });
+      activityId: initialData?.id || null, 
+      details: {
+        area,
+        food_served: foodServed,
+        beneficiaries: Number(beneficiaries),
+        market_expenses: marketExpenses 
+      }
+    };
+
+    const result = await submitMinistryActivity(payload);
 
     setIsSubmitting(false);
     
     if (result.success) {
-      alert("Activity Logged!");
+      if (onSuccess) {
+        onSuccess(); 
+      } else {
+        alert("Activity Saved Successfully!");
+        setParishId('');
+        setDate('');
+        setArea('');
+        setFoodServed('');
+        setBeneficiaries('');
+        setMarketExpenses([{ item: '', cost: '' }]);
+      }
     } else {
-      alert(result.message);
+      alert(result.message || "An error occurred");
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-10">
       
-      {/* SECTION 1: General Info */}
       <div className="space-y-5">
-        <h3 className="text-lg font-bold text-[#0060AF] border-b pb-2">1. General Information</h3>
+        <h3 className="text-lg font-bold text-[#0060AF] border-b pb-2 flex items-center gap-2">
+          <MapPin size={20} /> 1. General Information
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Station Location</label>
-            <select required value={parishId} onChange={e => setParishId(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#0060AF] outline-none">
-              <option value="" disabled>Select Parish...</option>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Mission Station</label>
+            <select 
+              required 
+              value={parishId} 
+              onChange={e => setParishId(e.target.value)} 
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 outline-none focus:ring-2 focus:ring-[#0060AF] bg-white text-sm"
+            >
+              <option value="" disabled>Select Station...</option>
               {parishes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Date of Activity</label>
-            <input required type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#0060AF] outline-none" />
+            <input 
+              required 
+              type="date" 
+              value={date} 
+              onChange={e => setDate(e.target.value)} 
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 outline-none text-sm" 
+            />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Program Type</label>
-            <select value={programType} onChange={e => setProgramType(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#0060AF] outline-none">
-              <option value="Breakfast">Breakfast</option>
-              <option value="Lunch">Lunch</option>
-              <option value="Dinner">Dinner</option>
-            </select>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Specific Area</label>
+            <input 
+              required 
+              type="text" 
+              placeholder="e.g. Purok 4" 
+              value={area} 
+              onChange={e => setArea(e.target.value)} 
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 outline-none text-sm" 
+            />
           </div>
         </div>
       </div>
 
-      {/* SECTION 2: Details */}
       <div className="space-y-5">
-        <h3 className="text-lg font-bold text-[#0060AF] border-b pb-2">2. Details</h3>
+        <h3 className="text-lg font-bold text-[#0060AF] border-b pb-2 flex items-center gap-2">
+          <Utensils size={20} /> 2. Service Details
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Food Served</label>
-            <input required type="text" placeholder="e.g. Chicken Lugaw with Egg" value={foodServed} onChange={e => setFoodServed(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#0060AF] outline-none" />
+            <label className="block text-sm font-medium text-gray-700 mb-1">Meal Served</label>
+            <input 
+              required 
+              type="text" 
+              placeholder="Menu item" 
+              value={foodServed} 
+              onChange={e => setFoodServed(e.target.value)} 
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 outline-none text-sm" 
+            />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Total Beneficiaries (Kids Fed)</label>
-            <input required type="number" min="0" placeholder="e.g. 150" value={beneficiaries} onChange={e => setBeneficiaries(e.target.value)} className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#0060AF] outline-none" />
+            <label className="block text-sm font-medium text-gray-700 mb-1">Total Beneficiaries</label>
+            <input 
+              required 
+              type="number" 
+              value={beneficiaries} 
+              onChange={e => setBeneficiaries(e.target.value)} 
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 outline-none text-sm" 
+            />
           </div>
         </div>
       </div>
 
-      {/* SECTION 3: Resource Utilization */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-bold text-[#0060AF] border-b pb-2">3. Resource Utilization</h3>
-        
-        {resources.map((resource, index) => (
-          <div key={index} className="flex flex-wrap md:flex-nowrap items-center gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
-            
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-xs text-gray-500 mb-1">Resource Item</label>
-              <select value={resource.item} onChange={e => handleUpdateResource(index, 'item', e.target.value)} className="w-full px-3 py-2 rounded-md border border-gray-300 outline-none">
-                {STANDARD_ITEMS.map(i => <option key={i} value={i}>{i}</option>)}
-              </select>
-            </div>
-
-            <div className="w-32">
-              <label className="block text-xs text-gray-500 mb-1">Quantity</label>
-              <input type="number" step="0.1" min="0" required value={resource.quantity} onChange={e => handleUpdateResource(index, 'quantity', e.target.value)} className="w-full px-3 py-2 rounded-md border border-gray-300 outline-none" />
-            </div>
-
-            <div className="w-40">
-              <label className="block text-xs text-gray-500 mb-1">Unit</label>
-              <select value={resource.unit} onChange={e => handleUpdateResource(index, 'unit', e.target.value)} className="w-full px-3 py-2 rounded-md border border-gray-300 outline-none">
-                {STANDARD_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
-
-            <div className="pt-5">
-              <button type="button" onClick={() => handleRemoveResource(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-md transition-colors disabled:opacity-30" disabled={resources.length === 1}>
-                <Trash2 size={20} />
+      <div className="space-y-5">
+        <h3 className="text-lg font-bold text-[#0060AF] border-b pb-2 flex items-center gap-2">
+          <Receipt size={20} /> 3. Market Expenses Breakdown
+        </h3>
+        <div className="space-y-3">
+          {marketExpenses.map((expense, index) => (
+            <div key={index} className="flex gap-3 items-end bg-gray-50 p-4 rounded-xl border border-gray-200">
+              <div className="flex-1">
+                <input 
+                  required
+                  placeholder="Item" 
+                  value={expense.item} 
+                  onChange={e => handleUpdateExpense(index, 'item', e.target.value)} 
+                  className="w-full p-2.5 text-sm rounded-lg border border-gray-300 outline-none" 
+                />
+              </div>
+              <div className="w-32">
+                <input 
+                  required
+                  type="number" 
+                  placeholder="Cost"
+                  value={expense.cost} 
+                  onChange={e => handleUpdateExpense(index, 'cost', e.target.value)} 
+                  className="w-full p-2.5 text-sm rounded-lg border border-gray-300 outline-none" 
+                />
+              </div>
+              <button 
+                type="button" 
+                onClick={() => handleRemoveExpense(index)} 
+                className="p-2.5 text-red-500 hover:bg-red-50 rounded-lg"
+              >
+                <Trash2 size={18} />
               </button>
             </div>
-          </div>
-        ))}
-
-        <button type="button" onClick={handleAddResource} className="flex items-center gap-2 text-sm font-semibold text-[#0060AF] hover:text-blue-800 transition-colors mt-2">
-          <Plus size={16} /> Add Another Resource
-        </button>
+          ))}
+          <button type="button" onClick={handleAddExpense} className="text-sm font-bold text-[#0060AF] flex items-center gap-2 px-1">
+            <Plus size={16} /> Add Item
+          </button>
+        </div>
       </div>
 
-      {/* Submit Button */}
-      <div className="pt-6 border-t">
-        <button type="submit" disabled={isSubmitting} className="w-full md:w-auto bg-[#2dd4bf] hover:bg-[#14b8a6] text-black font-bold px-10 py-3 rounded-full shadow-md transition-transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:transform-none">
-          {isSubmitting ? 'Saving Activity...' : 'Submit Activity Report'} <CheckCircle2 size={18} />
+      <div className="pt-8 border-t flex gap-4">
+        <button 
+          type="submit" 
+          disabled={isSubmitting} 
+          className="flex-1 bg-[#2dd4bf] hover:bg-[#14b8a6] text-black font-bold py-4 rounded-full shadow-lg flex items-center justify-center gap-3 disabled:opacity-50 transition-all"
+        >
+          {isSubmitting ? 'Processing...' : initialData ? 'Update Activity Report' : 'Submit Activity Report'} 
+          <CheckCircle2 size={20} />
         </button>
+        {onSuccess && (
+          <button type="button" onClick={onSuccess} className="px-8 py-4 rounded-full border border-gray-200 font-bold hover:bg-gray-50 transition-colors">
+            Cancel
+          </button>
+        )}
       </div>
     </form>
   );

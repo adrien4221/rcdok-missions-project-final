@@ -6,7 +6,8 @@ export const orgTypeEnum = pgEnum('org_type', [
   'vicariate', 
   'parish', 
   'quasi-parish',
-  'station'
+  'station',
+  'chapel'
 ]);
 
 
@@ -16,10 +17,8 @@ export const organizations = pgTable("Organizations", {
   address: text("address"),
   contactNumber: text("contact_number"),
   
-  // Tag as a parish, vicariate, etc.
   type: orgTypeEnum("type").notNull(),
   
-  // self-referencing parentId to build the hierarchy (diocese > vicariate > parish)
   parentId: uuid("parent_id").references((): any => organizations.id, { 
     onDelete: 'cascade' // if a vicariate is deleted, delete its parishes too
   }),

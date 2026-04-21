@@ -1,76 +1,225 @@
 'use client';
 
 import { useState } from 'react';
-import { loginAdmin } from '@/app/actions/auth';
-import { Lock } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { getSupabaseBrowserClient } from "@/lib/browser-client";
+import { Lock, UserPlus, ChevronDown } from 'lucide-react';
+
+interface UserProfile {
+  is_approved: boolean;
+  role: string;
+}
 
 export default function LoginPage() {
+  const router = useRouter();
+  const supabase = getSupabaseBrowserClient();
+  
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [ministry, setMinistry] = useState('');
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+    setSuccess('');
 
-    const formData = new FormData(e.currentTarget);
-    const result = await loginAdmin(formData);
+    try {
+      if (mode === 'signup') {
+        // User sign-up logic
+        const { error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            data: {
+              full_name: fullName,
+              ministry: ministry,
+            },
+          },
+        });
 
-    if (result?.error) {
-      setError(result.error);
+        if (signUpError) {
+          setError(signUpError.message);
+        } else {
+          setSuccess("Registration submitted! Please wait for an Admin to approve your access.");
+          setMode('signin');
+          setFullName('');
+          setMinistry('');
+        }
+
+      } else {
+        // user log-in logic
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (authError || !data.user) {
+          setError(authError?.message || "Invalid login credentials");
+          return;
+        }
+
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('is_approved, role')
+          .eq('id', data.user.id)
+          .single();
+
+        const userProfile = profile as UserProfile | null;
+
+        if (profileError || !userProfile) {
+          console.error("Profile fetch error:", profileError);
+          setError("Profile data could not be loaded. Contact administrator.");
+          return;
+        }
+
+        if (userProfile.is_approved) {
+          if (userProfile.role === 'admin') {
+            router.push("/admin");
+          } else {
+            router.push("/public/request");
+          }
+        } else {
+          await supabase.auth.signOut();
+          setError("Your account is pending administrator approval.");
+        }
+      }
+    } catch (err: any) {
+      console.error("Auth Exception:", err);
+      setError("Supabase connection error");
+    } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 font-sans">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
+    <div className="min-h-screen flex items-center justify-center bg-[#ddf6ff] p-4 font-sans text-slate-900">
+      <div className="max-w-md w-full bg-white rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden border border-blue-100 transition-all">
         
-        <div className="bg-[#0060AF] p-8 text-center">
+        {/* header */}
+        <div className="bg-[#0060AF] p-8 text-center text-white">
           <div className="bg-white/20 p-4 rounded-full w-fit mx-auto mb-4">
-            <Lock className="text-white" size={32} />
+            {mode === 'signin' ? <Lock size={32} /> : <UserPlus size={32} />}
           </div>
-          <h1 className="text-2xl font-bold text-white">Diocese Admin Portal</h1>
-          <p className="text-blue-100 mt-2 text-sm">Sign in to manage ministry operations.</p>
+          <h1 className="text-2xl font-bold">
+            {mode === 'signin' ? 'Diocese Admin Portal' : 'Staff Registration'}
+          </h1>
+          <p className="text-blue-100 mt-2 text-sm">
+            {mode === 'signin' ? 'Sign in to manage ministry operations.' : 'Request access to the portal.'}
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 space-y-6">
+        <form onSubmit={handleSubmit} className="p-8 space-y-5">
+          {/* status message */}
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm text-center font-medium border border-red-100">
+            <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm text-center border border-red-100 font-medium">
               {error}
             </div>
           )}
+          {success && (
+            <div className="bg-emerald-50 text-emerald-600 p-3 rounded-xl text-sm text-center border border-emerald-100 font-medium">
+              {success}
+            </div>
+          )}
 
+          {/* sign-Up input fields */}
+          {mode === 'signup' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Full Name</label>
+                <input 
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  type="text" 
+                  required 
+                  placeholder="Juan Dela Cruz"
+                  className="w-full px-4 py-3 rounded-xl border border-blue-100 bg-slate-50 focus:ring-2 focus:ring-[#0060AF] focus:bg-white outline-none transition-all" 
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Ministry</label>
+                <div className="relative">
+                  <select 
+                    value={ministry}
+                    onChange={(e) => setMinistry(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 rounded-xl border border-blue-100 bg-slate-50 focus:ring-2 focus:ring-[#0060AF] focus:bg-white outline-none transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="" disabled>Select your ministry</option>
+                    <option value="Nutrition Ministry (Busog Puso)">Nutrition Ministry (Busog Puso)</option>
+                    <option value="Civil Registry Ministry">Civil Registry Ministry</option>
+                    <option value="Justice Ministry">Justice Ministry</option>
+                    <option value="Mental Health Ministry (Kaagapay)">Mental Health Ministry (Kaagapay)</option>
+                    <option value="Drug Rehabilitation Ministry (Salubong)">Drug Rehabilitation Ministry (Salubong)</option>
+                    <option value="Community Ministry (BEC)">Community Ministry (BEC)</option>
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* input fields */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
             <input 
-              name="email" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               type="email" 
               required 
-              defaultValue="admin@diocese.com" // Pre-filled for testing
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#0060AF] focus:border-transparent outline-none transition-all" 
+              placeholder="email@diocese.com"
+              className="w-full px-4 py-3 rounded-xl border border-blue-100 bg-slate-50 focus:ring-2 focus:ring-[#0060AF] focus:bg-white outline-none transition-all" 
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
             <input 
-              name="password" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               type="password" 
               required 
-              defaultValue="admin123" // Pre-filled for testing
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#0060AF] focus:border-transparent outline-none transition-all" 
+              placeholder="••••••••"
+              className="w-full px-4 py-3 rounded-xl border border-blue-100 bg-slate-50 focus:ring-2 focus:ring-[#0060AF] focus:bg-white outline-none transition-all" 
             />
           </div>
 
           <button 
             type="submit" 
             disabled={isLoading}
-            className="w-full bg-[#0060AF] hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-all active:scale-95 disabled:opacity-70 disabled:active:scale-100 shadow-md"
+            className="w-full bg-[#0060AF] hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] disabled:opacity-70 shadow-md mt-2"
           >
-            {isLoading ? 'Authenticating...' : 'Secure Login'}
+            {isLoading ? 'Processing...' : mode === 'signin' ? 'Secure Login' : 'Request Access'}
           </button>
+          
+          <div className="text-center pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setMode(mode === 'signin' ? 'signup' : 'signin');
+                setError('');
+                setSuccess('');
+              }}
+              className="text-sm font-semibold text-[#0060AF] hover:text-blue-800 transition-colors"
+            >
+              {mode === 'signin' ? "Need staff access? Request Registration" : "Already have an account? Sign in"}
+            </button>
+          </div>
         </form>
+
+        <div className="bg-slate-50 py-4 border-t border-slate-100 text-center">
+          <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">
+            Authorized Personnel Only
+          </p>
+        </div>
       </div>
     </div>
   );

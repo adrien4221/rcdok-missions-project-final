@@ -45,7 +45,7 @@ export default function BeneficiariesChart({
             view === 'parish' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
           }`}
         >
-          By Parish
+          By Members
         </button>
         <button
           onClick={() => setView('vicariate')}
@@ -63,6 +63,7 @@ export default function BeneficiariesChart({
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
             <XAxis 
               dataKey="name" 
+              hide={true}
               axisLine={false} 
               tickLine={false} 
               tick={{ fill: '#6B7280', fontSize: 12 }} 
@@ -76,7 +77,7 @@ export default function BeneficiariesChart({
               cursor={{ fill: '#F3F4F6' }}
               contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
             />
-            <Bar dataKey="kidsFed" fill="#0060AF" radius={[4, 4, 0, 0]} name="Kids Fed" />
+            <Bar dataKey="kidsFed" fill="#0060AF" radius={[4, 4, 0, 0]} name="Total Fed" />
           </BarChart>
         </ResponsiveContainer>
       </div>

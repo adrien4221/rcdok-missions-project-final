@@ -1,51 +1,45 @@
 import { db } from '@/db';
-import { organizations } from '@/db/schemas/organizations';
-import { eq } from 'drizzle-orm';
-import ActivityForm from './ActivityForm';
-import LegalAidForm from './LegalAidForm';
-import CommunityForm from './CommunityForm';
-import DrugRehabForm from './DrugRehabForm';
-import MentalHealthForm from './MentalHealthForm';
-import CivilRegistryForm from './CivilRegistryForm';
 import { services } from '@/db/schemas/services';
-import { Suspense } from 'react';
+import { eq } from 'drizzle-orm';
+import { fetchActiveStationsByServiceName } from '@/app/actions/actions';
+import ActivityForm from './ActivityForm';
 
 export default async function SubmitActivityPage({ 
   params 
 }: { 
   params: Promise<{ serviceId: string }> 
 }) {
-  const resolvedParams = await params;
+  const { serviceId } = await params;
 
-  const [ministry] = await db.select().from(services).where(eq(services.id, resolvedParams.serviceId));
-  
-  // Fetch all parishes in the server component so we can pass it down to the form as a prop for the "Assigned Station" dropdown. This way, we avoid fetching parishes separately in each form component, and we ensure consistency across all forms.
-  const parishes = await db
-    .select({ id: organizations.id, name: organizations.name })
-    .from(organizations)
-    .where(eq(organizations.type, 'parish')) 
-    .orderBy(organizations.name);
+  // ministry details
+  const [ministry] = await db
+    .select()
+    .from(services)
+    .where(eq(services.id, serviceId));
+
+  if (!ministry) return <div>Ministry not found</div>;
+
+  // load only enabled stations in services
+  const activeStationsResult = await fetchActiveStationsByServiceName(ministry.name);
+  const parishes = activeStationsResult.success ? activeStationsResult.data : [];
 
   return (
-    <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Log New Activity</h2>
-      <Suspense fallback={<div className="p-8 text-center text-gray-500">Loading form...</div>}>
-        {ministry?.name.includes("Busog Puso") ? (
-          <ActivityForm serviceId={resolvedParams.serviceId} parishes={parishes} />
-        ) : ministry?.name.includes("Legal Aid") ? (
-          <LegalAidForm serviceId={resolvedParams.serviceId} parishes={parishes} />
-        ) : ministry?.name.includes("Community") ? ( 
-          <CommunityForm serviceId={resolvedParams.serviceId} parishes={parishes} />
-        ) : ministry?.name.includes("Rehab") ? (
-          <DrugRehabForm serviceId={resolvedParams.serviceId} parishes={parishes} />
-        ) : ministry?.name.includes("Mental Health") ? (
-          <MentalHealthForm serviceId={resolvedParams.serviceId} parishes={parishes} />
-        ) : ministry?.name.includes("Civil Registry") ? (
-          <CivilRegistryForm serviceId={resolvedParams.serviceId} parishes={parishes} />
-        ) : (
-          <p className="text-gray-500">Form configuration for this ministry is currently under development.</p>
-        )}
-      </Suspense>
+    <div className="max-w-5xl mx-auto p-6 md:p-10">
+      <div className="mb-10">
+        <h1 className="text-3xl font-black text-gray-900 tracking-tight">
+          Submit {ministry.name} Report
+        </h1>
+        <p className="text-gray-500 mt-2 font-medium">
+          Fill out the details below to log the latest feeding activity.
+        </p>
+      </div>
+
+      <div className="bg-white rounded-[2.5rem] shadow-xl shadow-blue-900/5 border border-gray-100 p-8 md:p-12">
+        <ActivityForm 
+          serviceId={serviceId} 
+          parishes={parishes} // pass fetched parishes/stations/chapels 
+        />
+      </div>
     </div>
   );
 }

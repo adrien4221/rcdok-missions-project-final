@@ -1,8 +1,12 @@
 import { db } from '@/db';
 import { services } from '@/db/schemas/services';
-import { eq } from 'drizzle-orm';
+import { ministryActivities } from '@/db/schemas/activities';
+import { organizations } from '@/db/schemas/organizations';
+import { eq, desc } from 'drizzle-orm';
+import { fetchActiveStationsByServiceName } from '@/app/actions/actions';
+
 import LegalAidLog from './LegalAidLog';
-import BusogPusoLog from './BusogPusoLog'; 
+import BusogPusoLog from './BusogPusoLog';
 import CommunityLog from './CommunityLog';
 import DrugRehabLog from './DrugRehabLog';
 import MentalHealthLog from './MentalHealthLog';
@@ -13,43 +17,69 @@ export default async function MasterLogPage({
 }: { 
   params: Promise<{ serviceId: string }> 
 }) {
-  const resolvedParams = await params;
-  const serviceId = resolvedParams.serviceId;
+  const { serviceId } = await params;
 
-  // fetch the specific ministry to know its name
+  // get specific ministry
   const [ministry] = await db
     .select()
     .from(services)
     .where(eq(services.id, serviceId));
 
-  // 2. Render the correct Activity Log based on the name
-  if (ministry?.name.includes("Busog Puso")) {
-    return <BusogPusoLog serviceId={serviceId} />; 
+  if (!ministry) {
+    return <div className="p-8 text-center text-gray-500">Ministry not found.</div>;
+  }
+
+  // get only enalbed stations in services
+  const activeStationsResult = await fetchActiveStationsByServiceName(ministry.name);
+  const parishes = activeStationsResult.success ? activeStationsResult.data : [];
+
+  // get log data
+  const activityData = await db
+    .select({
+      id: ministryActivities.id,
+      date: ministryActivities.activityDate,
+      details: ministryActivities.details,
+      parishName: organizations.name,
+      organizationId: organizations.id, 
+    })
+    .from(ministryActivities)
+    .innerJoin(organizations, eq(ministryActivities.organizationId, organizations.id))
+    .where(eq(ministryActivities.serviceId, serviceId))
+    .orderBy(desc(ministryActivities.activityDate));
+
+  if (ministry.name.includes("Busog Puso")) {
+    return (
+      <BusogPusoLog 
+        initialActivities={activityData} 
+        serviceId={serviceId} 
+        parishes={parishes} 
+      />
+    ); 
   } 
-  
-  if (ministry?.name.includes("Legal Aid")) {
+
+  if (ministry.name.includes("Legal Aid")) {
     return <LegalAidLog serviceId={serviceId} />;
   }
 
-  if (ministry?.name.includes("Community")) {
+  if (ministry.name.includes("Community")) {
     return <CommunityLog serviceId={serviceId} />;
   }
 
-  if (ministry?.name.includes("Drug Rehabilitation") || ministry?.name.includes("Rehab")) {
+  if (ministry.name.includes("Drug Rehabilitation") || ministry.name.includes("Rehab")) {
     return <DrugRehabLog serviceId={serviceId} />;
   }
 
-  if (ministry?.name.includes("Mental Health")) {
+  if (ministry.name.includes("Mental Health")) {
     return <MentalHealthLog serviceId={serviceId} />;
   }
 
-  if (ministry?.name.includes("Civil Registry") || ministry?.name.includes("Registry")) {
+  if (ministry.name.includes("Civil Registry") || ministry.name.includes("Registry")) {
     return <CivilRegistryLog serviceId={serviceId} />;
   }
-  // fallback state for future ministries
+
   return (
-    <div className="p-8 text-center text-gray-500">
-      Activity Log configuration for this ministry is currently under development.
+    <div className="p-8 text-center text-gray-500 italic">
+      Activity Log configuration for "{ministry.name}" is currently under development.
     </div>
   );
 }

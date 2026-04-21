@@ -10,32 +10,34 @@ export default function MinistrySidebar({ ministries }: { ministries: Ministry[]
   const pathname = usePathname();
 
   return (
-    <aside className="w-80 bg-white border-r border-gray-200 flex flex-col h-full shadow-sm z-10">
-      <div className="p-6 border-b border-gray-100">
-        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-          <LayoutDashboard className="text-[#0060AF]" /> 
+    <aside className="w-60 bg-white border-r border-gray-200 flex flex-col h-full shadow-sm z-10 shrink-0">
+      
+      <div className="p-4 border-b border-gray-100">
+        <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2 uppercase tracking-wider">
+          <LayoutDashboard size={14} className="text-[#0060AF]" /> 
           Ministries
         </h2>
-        <p className="text-sm text-gray-500 mt-1">Select a service to manage</p>
+        <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">System Management</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-2">
+      <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
         {ministries.map((ministry) => {
-          // Check if the current URL contains this ministry's ID
           const isActive = pathname.includes(ministry.id);
 
           return (
             <Link
               key={ministry.id}
               href={`/admin/ministries/${ministry.id}/analytics`}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-md transition-all duration-200 ${
                 isActive 
-                  ? 'bg-blue-50 border border-blue-100 text-[#0060AF] font-semibold shadow-sm' 
-                  : 'text-gray-600 hover:bg-gray-50 border border-transparent hover:border-gray-200'
+                  ? 'bg-blue-50 text-[#0060AF] font-bold text-[13px]' 
+                  : 'text-gray-500 hover:bg-gray-50 text-[13px] hover:text-gray-900'
               }`}
             >
-              <span className="text-2xl">{ministry.icon || '📂'}</span>
-              <span>{ministry.name}</span>
+              <span className="text-base w-5 flex justify-center shrink-0">
+                {ministry.icon || '📂'}
+              </span>              
+              <span className="truncate tracking-tight">{ministry.name}</span>
             </Link>
           );
         })}
