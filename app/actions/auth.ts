@@ -21,7 +21,7 @@ export async function loginAdmin(formData: FormData) {
     });
 
     // redirect to the admin dashboard after successful login
-    redirect('/admin/request-management'); 
+    redirect('/admin/user-management'); 
   }
 
   return { error: 'Invalid email or password.' };

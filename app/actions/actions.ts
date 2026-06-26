@@ -2,6 +2,7 @@
 
 import { db } from "@/db/index";
 import { organizations } from "@/db/schemas/organizations";
+import { profiles } from "@/db/schemas/profiles";
 import { ministryActivities } from '@/db/schemas/activities';
 import { services, organizationServices } from "@/db/schemas/services"; 
 import { revalidatePath } from 'next/cache';
@@ -109,4 +110,39 @@ export async function submitMinistryActivity(data: any) {
   } catch (e) {
     return { success: false, message: "Error saving data" };
   }
+}
+
+export async function approveUser(userId: string) {
+  await db
+    .update(profiles)
+    .set({
+      is_approved: true,
+    })
+    .where(eq(profiles.id, userId));
+
+  revalidatePath('/admin/user-management');
+}
+
+export async function deleteUser(userId: string) {
+  await db
+    .delete(profiles)
+    .where(eq(profiles.id, userId));
+
+  revalidatePath('/admin/user-management');
+}
+
+export async function updateUser(
+  userId: string,
+  role: string,
+  serviceId: string
+) {
+  await db
+    .update(profiles)
+    .set({
+      role,
+      service_id: serviceId || null,
+    })
+    .where(eq(profiles.id, userId));
+
+  revalidatePath('/admin/user-management');
 }

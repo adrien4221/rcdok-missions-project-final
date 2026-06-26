@@ -48,8 +48,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  if (isLoginPage && session) {
-    return NextResponse.redirect(new URL('/admin', request.url))
+  // Only protect admin routes
+  if (isAdminPage && !session) {
+    return NextResponse.redirect(new URL('/login', request.url))
   }
 
   return response

@@ -22,7 +22,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [ministry, setMinistry] = useState('');
+  const [serviceId, setServiceId] = useState('');
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -40,7 +40,7 @@ export default function LoginPage() {
             emailRedirectTo: `${window.location.origin}/auth/callback`,
             data: {
               full_name: fullName,
-              ministry: ministry,
+              service_id: serviceId,
             },
           },
         });
@@ -51,7 +51,7 @@ export default function LoginPage() {
           setSuccess("Registration submitted! Please wait for an Admin to approve your access.");
           setMode('signin');
           setFullName('');
-          setMinistry('');
+          setServiceId('');
         }
 
       } else {
@@ -83,8 +83,8 @@ export default function LoginPage() {
         if (userProfile.is_approved) {
           if (userProfile.role === 'admin') {
             router.push("/admin");
-          } else {
-            router.push("/public/request");
+          } else if (userProfile.role === "staff") {
+            router.push("/staff");
           }
         } else {
           await supabase.auth.signOut();
@@ -148,18 +148,18 @@ export default function LoginPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Ministry</label>
                 <div className="relative">
                   <select 
-                    value={ministry}
-                    onChange={(e) => setMinistry(e.target.value)}
+                    value={serviceId}
+                    onChange={(e) => setServiceId(e.target.value)}
                     required
                     className="w-full px-4 py-3 rounded-xl border border-blue-100 bg-slate-50 focus:ring-2 focus:ring-[#0060AF] focus:bg-white outline-none transition-all appearance-none cursor-pointer"
                   >
                     <option value="" disabled>Select your ministry</option>
-                    <option value="Nutrition Ministry (Busog Puso)">Nutrition Ministry (Busog Puso)</option>
-                    <option value="Civil Registry Ministry">Civil Registry Ministry</option>
-                    <option value="Justice Ministry">Justice Ministry</option>
-                    <option value="Mental Health Ministry (Kaagapay)">Mental Health Ministry (Kaagapay)</option>
-                    <option value="Drug Rehabilitation Ministry (Salubong)">Drug Rehabilitation Ministry (Salubong)</option>
-                    <option value="Community Ministry (BEC)">Community Ministry (BEC)</option>
+                    <option value="17b9bee1-9041-4d03-86a6-1edae4c1bae5">Nutrition Ministry (Busog Puso)</option>
+                    <option value="99823fae-b23d-4478-81fc-1e2c039be0ec">Civil Registry Ministry</option>
+                    <option value="f1fc9691-6882-4e32-8073-3d64a94bb1a2">Justice Ministry</option>
+                    <option value="0dfdf43c-819f-4020-aef3-5179b48ef44a">Mental Health Ministry (Kaagapay)</option>
+                    <option value="2ebdda8b-a4c2-4b6d-92c7-982d1c7d5f88">Drug Rehabilitation Ministry (Salubong)</option>
+                    <option value="ed983f8c-8919-4501-ab97-38dc118a4e9f">Community Ministry (BEC)</option>
                   </select>
                   <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
                 </div>
