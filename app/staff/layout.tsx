@@ -4,9 +4,9 @@ import { db } from "@/db";
 import { profiles } from "@/db/schemas/profiles";
 import { eq } from "drizzle-orm";
 
-import AdminShell from "@/components/admin-shell";
+import StaffShell from "@/components/staff-shell";
 
-export default async function AdminLayout({
+export default async function StaffLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -17,36 +17,32 @@ export default async function AdminLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Not logged in
   if (!user) {
     redirect("/login");
   }
 
-  // Check profile still exists
   const profile = await db
     .select()
     .from(profiles)
     .where(eq(profiles.id, user.id))
     .then((rows) => rows[0]);
 
-  // Deleted from database
   if (!profile) {
     redirect("/login");
   }
 
-  // Not approved
   if (!profile.is_approved) {
     redirect("/login");
   }
 
-  // Not admin
-  if (profile.role !== "admin") {
+  // Only staff allowed
+  if (profile.role !== "staff") {
     redirect("/login");
   }
 
   return (
-    <AdminShell>
+    <StaffShell>
       {children}
-    </AdminShell>
+    </StaffShell>
   );
 }

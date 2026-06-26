@@ -1,29 +1,61 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
 
-export function middleware(request: NextRequest) {
-  // 1. Check if the user has the secure cookie
-  const hasSession = request.cookies.has('admin_session');
-  // 2. If they're trying to access an admin page without a session, redirect to login
-  if (request.nextUrl.pathname.startsWith('/admin')) {
-    if (!hasSession) {
-      // if they don't have a valid session, redirect to login
-      return NextResponse.redirect(new URL('/login', request.url));
+export async function middleware(request: NextRequest) {
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          request.cookies.set({ name, value, ...options })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({ name, value, ...options })
+        },
+        remove(name: string, options: CookieOptions) {
+          request.cookies.set({ name, value: '', ...options })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({ name, value: '', ...options })
+        },
+      },
     }
+  )
+
+  const { data: { session } } = await supabase.auth.getSession()
+
+  // --- Redirect Logic ---
+  const isLoginPage = request.nextUrl.pathname === '/login'
+  const isAdminPage = request.nextUrl.pathname.startsWith('/admin')
+
+  if (isAdminPage && !session) {
+    return NextResponse.redirect(new URL('/login', request.url))
   }
 
-    // 3. If they're trying to access the login page but already have a session, redirect to dashboard
-  if (request.nextUrl.pathname === '/login') {
-    if (hasSession) {
-      // redirect to dashboard if they are already logged in
-      return NextResponse.redirect(new URL('/admin/requests', request.url));
-    }
+  // Only protect admin routes
+  if (isAdminPage && !session) {
+    return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  return NextResponse.next();
+  return response
 }
 
-// 4. Specify which paths should be protected by this middleware
 export const config = {
   matcher: ['/admin/:path*', '/login'],
-};
+}
