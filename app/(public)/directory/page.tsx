@@ -18,7 +18,7 @@ function normalizeCategory(name: string, dbCat: string | null) {
 
 export default async function ResourceDirectoryPage() {
   const dbOrgs = await db.select().from(organizations).where(
-    inArray(organizations.type, ['parish', 'quasi-parish'])
+    inArray(organizations.type, ['parish', 'quasi-parish', 'station', 'chapel'])
   );
 
   const linkedServices = await db.select({
