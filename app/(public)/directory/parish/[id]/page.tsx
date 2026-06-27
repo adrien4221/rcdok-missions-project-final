@@ -28,7 +28,7 @@ export default async function ParishDetailsPage({
   const ministries = await db
     .select({
       name: services.name,
-      description: organizationServices.description,
+      description: services.description,
       schedule: organizationServices.schedule,
     })
     .from(organizationServices)
@@ -103,17 +103,6 @@ export default async function ParishDetailsPage({
               </div>
             ))
           )}
-        </div>
-
-        {/* Request Help Button */}
-        <div className="flex justify-center mt-12">
-          {/* Note: I moved the Link outside the button to make the whole button clickable safely in Next.js */}
-          <Link 
-            href={`/directory/parish/${parish.id}/request`}
-            className="bg-[#2dd4bf] hover:bg-[#14b8a6] text-black text-xl font-bold px-10 py-4 rounded-full shadow-md transition-transform hover:scale-105 active:scale-95"
-          >
-            Request Help in this Parish
-          </Link>
         </div>
 
       </main>

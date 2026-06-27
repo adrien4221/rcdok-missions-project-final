@@ -7,6 +7,7 @@ export const services = pgTable('services', {
   name: varchar('name', { length: 255 }).notNull().unique(), // e.g., "Food Pantry"
   category: varchar('category', { length: 255 }), // e.g., "Nutrition", "Legal Aid"
   icon: varchar('icon', { length: 255 }), // e.g., "Coffee", "Shield" 
+  description: text("description"),
 });
 
 // Junction Table to link Organizations and Services with parish-specific details

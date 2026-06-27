@@ -197,7 +197,7 @@ export default function LoginPage() {
             disabled={isLoading}
             className="w-full bg-[#0060AF] hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] disabled:opacity-70 shadow-md mt-2"
           >
-            {isLoading ? 'Processing...' : mode === 'signin' ? 'Secure Login' : 'Request Access'}
+            {isLoading ? 'Processing...' : mode === 'signin' ? 'Login' : 'Request Access'}
           </button>
           
           <div className="text-center pt-2">

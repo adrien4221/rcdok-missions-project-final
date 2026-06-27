@@ -27,6 +27,12 @@ export default function LandingPage() {
         </div>
 
         {/* admin login button */}
+        <Link
+          href="/login"
+          className="inline-flex items-center gap-2 rounded-lg border border-[#0060AF] px-4 py-2 text-sm font-semibold text-[#0060AF] hover:bg-[#0060AF] hover:text-white transition-colors duration-200"
+        >
+          Login
+        </Link>
 
       </header>
 
@@ -41,7 +47,7 @@ export default function LandingPage() {
                 Diocesan Mission Support Portal
               </h1>
               <p className="text-gray-500 text-lg font-medium">
-                Connecting communities to the ahelp they need.
+                Connecting communities to the help they need.
               </p>
            </div>
 
